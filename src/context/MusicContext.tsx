@@ -9,6 +9,7 @@ export interface Track {
   file: string;
 }
 
+// Liste mise à jour des pistes pour correspondre aux fichiers que vous avez réellement
 export const tracks: Track[] = [
   {
     id: 1,
@@ -20,22 +21,6 @@ export const tracks: Track[] = [
   },
   {
     id: 2,
-    title: "Innocence",
-    type: "opening",
-    artist: "Eir Aoi",
-    description: "The second opening theme, highlighting the growing relationship between Kirito and Asuna",
-    file: "/music/innocence.mp3"
-  },
-  {
-    id: 3,
-    title: "Overfly",
-    type: "ending",
-    artist: "Luna Haruna",
-    description: "The second ending theme of the series",
-    file: "/music/overfly.mp3"
-  },
-  {
-    id: 4,
     title: "Yume Sekai",
     type: "ending",
     artist: "Haruka Tomatsu",
@@ -43,7 +28,7 @@ export const tracks: Track[] = [
     file: "/music/yume_sekai.mp3"
   },
   {
-    id: 5,
+    id: 3,
     title: "Swordland",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -51,7 +36,7 @@ export const tracks: Track[] = [
     file: "/music/swordland.mp3"
   },
   {
-    id: 6,
+    id: 4,
     title: "We Have To Defeat It",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -59,7 +44,7 @@ export const tracks: Track[] = [
     file: "/music/we_have_to_defeat_it.mp3"
   },
   {
-    id: 7,
+    id: 5,
     title: "At Our Parting",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -67,7 +52,7 @@ export const tracks: Track[] = [
     file: "/music/at_our_parting.mp3"
   },
   {
-    id: 8,
+    id: 6,
     title: "A Tender Feeling",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -75,7 +60,7 @@ export const tracks: Track[] = [
     file: "/music/a_tender_feeling.mp3"
   },
   {
-    id: 9,
+    id: 7,
     title: "A Tiny Love",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -83,7 +68,7 @@ export const tracks: Track[] = [
     file: "/music/a_tiny_love.mp3"
   },
   {
-    id: 10,
+    id: 8,
     title: "Everyday Life",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -91,7 +76,7 @@ export const tracks: Track[] = [
     file: "/music/everyday_life.mp3"
   },
   {
-    id: 11,
+    id: 9,
     title: "Fight!!",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -99,15 +84,7 @@ export const tracks: Track[] = [
     file: "/music/fight.mp3"
   },
   {
-    id: 12,
-    title: "The Sword Draws",
-    type: "ost",
-    artist: "Yuki Kajiura",
-    description: "A dramatic theme that plays during crucial moments",
-    file: "/music/the_sword_draws.mp3"
-  },
-  {
-    id: 13,
+    id: 10,
     title: "Survive The Swordland",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -115,15 +92,7 @@ export const tracks: Track[] = [
     file: "/music/survive_the_swordland.mp3"
   },
   {
-    id: 14,
-    title: "The Black Swordsman",
-    type: "ost",
-    artist: "Yuki Kajiura",
-    description: "Kirito's theme music",
-    file: "/music/the_black_swordsman.mp3"
-  },
-  {
-    id: 15,
+    id: 11,
     title: "False King",
     type: "ost",
     artist: "Yuki Kajiura",
@@ -148,7 +117,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isPlaying, setIsPlaying] = useState(false);
 
   const handleNextTrack = () => {
-    if (!currentTrack) return;
+    if (!currentTrack) {
+      // Si aucune piste n'est sélectionnée, sélectionner la première
+      setCurrentTrack(tracks[0]);
+      setIsPlaying(true);
+      return;
+    }
+    
     const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
     const nextTrack = tracks[(currentIndex + 1) % tracks.length];
     setCurrentTrack(nextTrack);
@@ -156,7 +131,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const handlePrevTrack = () => {
-    if (!currentTrack) return;
+    if (!currentTrack) {
+      // Si aucune piste n'est sélectionnée, sélectionner la dernière
+      setCurrentTrack(tracks[tracks.length - 1]);
+      setIsPlaying(true);
+      return;
+    }
+    
     const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
     const prevTrack = tracks[(currentIndex - 1 + tracks.length) % tracks.length];
     setCurrentTrack(prevTrack);

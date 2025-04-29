@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Volume2, VolumeX, ChevronUp, ChevronDown, SkipBack, SkipForward, Repeat } from 'lucide-react';
-import useSound from 'use-sound';
 import { Track } from '../context/MusicContext';
 
 interface MusicPlayerProps {
@@ -28,59 +27,139 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isRepeat, setIsRepeat] = useState(false);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const animationRef = useRef<number | null>(null);
 
-  const [play, { pause, stop, duration: soundDuration, sound }] = useSound(
-    currentTrack?.file || '',
-    {
-      volume: isMuted ? 0 : volume,
-      loop: isRepeat,
-      onload: () => {
-        if (soundDuration) {
-          setDuration(soundDuration / 1000);
-        }
-      },
-      onplay: () => {
-        // Start progress tracking
-        requestAnimationFrame(trackProgress);
-      },
-      onend: () => {
-        if (!isRepeat) {
-          onNextTrack();
-        }
-      },
-    }
-  );
-
+  // Créer l'élément audio si nécessaire
   useEffect(() => {
-    if (isPlaying) {
-      play();
-    } else {
-      pause();
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      
+      // Ajouter des event listeners
+      audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audioRef.current.addEventListener('ended', handleEnded);
+      audioRef.current.addEventListener('error', handleError);
     }
+    
     return () => {
-      stop();
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audioRef.current.removeEventListener('ended', handleEnded);
+        audioRef.current.removeEventListener('error', handleError);
+        audioRef.current.pause();
+      }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
-  }, [isPlaying, currentTrack, play, pause, stop]);
+  }, []);
 
-  const trackProgress = () => {
-    if (sound) {
-      setCurrentTime(sound.seek());
-      setProgress((sound.seek() / (soundDuration / 1000)) * 100);
+  // Mettre à jour la source audio quand la piste change
+  useEffect(() => {
+    if (audioRef.current && currentTrack) {
+      audioRef.current.src = currentTrack.file;
+      audioRef.current.load();
       if (isPlaying) {
-        requestAnimationFrame(trackProgress);
+        playAudio();
+      }
+    }
+  }, [currentTrack]);
+
+  // Gérer la lecture/pause
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        playAudio();
+      } else {
+        pauseAudio();
+      }
+    }
+  }, [isPlaying]);
+
+  // Gérer le volume et le mode répétition
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.loop = isRepeat;
+    }
+  }, [volume, isMuted, isRepeat]);
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+      console.log("Métadonnées audio chargées:", audioRef.current.duration);
+    }
+  };
+
+  const handleEnded = () => {
+    if (!isRepeat) {
+      onNextTrack();
+    }
+  };
+
+  const handleError = (e: any) => {
+    console.error("Erreur de lecture audio:", e);
+    // Vous pouvez ajouter un état d'erreur ici si nécessaire
+  };
+
+  const playAudio = () => {
+    if (audioRef.current) {
+      const playPromise = audioRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("Lecture audio démarrée avec succès");
+            startProgressTimer();
+          })
+          .catch(error => {
+            console.error("Erreur lors du démarrage de la lecture:", error);
+            // Si la lecture échoue, mettre à jour l'état
+            onPlayPause();
+          });
       }
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = (parseInt(e.target.value) / 100) * (soundDuration / 1000);
-    if (sound) {
-      sound.seek(newTime);
+  const pauseAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
     }
-    setProgress(parseInt(e.target.value));
+  };
+
+  const startProgressTimer = () => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
+    const updateProgress = () => {
+      if (audioRef.current) {
+        setCurrentTime(audioRef.current.currentTime);
+        setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+        animationRef.current = requestAnimationFrame(updateProgress);
+      }
+    };
+    
+    animationRef.current = requestAnimationFrame(updateProgress);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    if (audioRef.current) {
+      const newTime = (value / 100) * audioRef.current.duration;
+      audioRef.current.currentTime = newTime;
+      setProgress(value);
+      setCurrentTime(newTime);
+    }
   };
 
   const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -88,6 +167,22 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
+  };
+
+  // Si vous voulez voir les informations en temps réel (pour déboguer)
+  const debugInfo = () => {
+    if (audioRef.current) {
+      return (
+        <div className="bg-red-500/10 p-2 rounded text-xs mb-2">
+          <p>Source: {audioRef.current.src}</p>
+          <p>Durée: {audioRef.current.duration}</p>
+          <p>Temps actuel: {audioRef.current.currentTime}</p>
+          <p>Paused: {audioRef.current.paused.toString()}</p>
+          <p>État de lecture: {isPlaying ? 'En lecture' : 'En pause'}</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -105,6 +200,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               exit={{ height: 0, opacity: 0 }}
               className="p-4 border-b border-gray-700"
             >
+              {/* Uncomment this to show debug info */}
+              {/* {debugInfo()} */}
+              
               {/* Progress Bar */}
               <div className="mb-4">
                 <input
